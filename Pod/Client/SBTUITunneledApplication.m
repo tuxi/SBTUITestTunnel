@@ -127,27 +127,28 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
     
     [self launch];
     
-    [self waitForAppReady];
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        int frequency = 2;
+        for (int i = 0; i < self.connectionTimeout * frequency; i++) {
+            if ([self isAppCruising]) {
+                dispatch_semaphore_signal(sem);
+                return;
+            }
+            [NSThread sleepForTimeInterval:1.0 / frequency];
+        }
+    });
+    
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.connectionTimeout * NSEC_PER_SEC))) != 0) {
+        NSAssert(NO, @"[SBTUITestTunnel] Failed waiting app to be ready");
+        [self terminate];
+    }
 }
 
 - (void)launchConnectionless:(NSString * (^)(NSString *, NSDictionary<NSString *, NSString *> *))command
 {
     self.connectionlessBlock = command;
-    [self terminate];
-}
-
-- (void)waitForAppReady
-{
-    const int timeout = self.connectionTimeout;
-    int i = 0;
-    for (i = 0; i < timeout; i++) {
-        if ([self isAppCruising]) {
-            return;
-        }
-        [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
-    }
-    
-    NSAssert(NO, @"[SBTUITestTunnel] Failed waiting app to be ready");
     [self terminate];
 }
 
