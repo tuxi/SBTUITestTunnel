@@ -125,12 +125,14 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
         return;
     }
     
+    NSInteger cachedPort = [environment[SBTUITunneledApplicationLaunchEnvironmentPreferredPortKey] integerValue];
+    
     Class requestClass = ([SBTUITunnelHTTPMethod isEqualToString:@"POST"]) ? [GCDWebServerURLEncodedFormRequest class] : [GCDWebServerRequest class];
     
     __weak typeof(self) weakSelf = self;
     [self.server addDefaultHandlerForMethod:SBTUITunnelHTTPMethod requestClass:requestClass processBlock:^GCDWebServerResponse *(GCDWebServerRequest* request) {
         __strong typeof(weakSelf)strongSelf = weakSelf;
-        __block GCDWebServerDataResponse *ret;
+        __block GCDWebServerDataResponse *ret = nil;
         
         dispatch_semaphore_t sem = dispatch_semaphore_create(0);
         dispatch_async(strongSelf.commandDispatchQueue, ^{
@@ -171,8 +173,13 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     
     NSDictionary *serverOptions = [NSMutableDictionary dictionary];
     
-    [serverOptions setValue:bonjourName forKey:GCDWebServerOption_BonjourName];
-    [serverOptions setValue:@"_http._tcp." forKey:GCDWebServerOption_BonjourType];
+    if (cachedPort > 0) {
+        [serverOptions setValue:@(cachedPort) forKey:GCDWebServerOption_Port];
+    } else {
+        [serverOptions setValue:bonjourName forKey:GCDWebServerOption_BonjourName];
+        [serverOptions setValue:@"_http._tcp." forKey:GCDWebServerOption_BonjourType];
+    }
+    
     [GCDWebServer setLogLevel:3];
     
     NSLog(@"[SBTUITestTunnel] Starting server with bonjour name: %@", bonjourName);

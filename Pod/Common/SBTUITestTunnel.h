@@ -25,6 +25,7 @@
 #import <Foundation/Foundation.h>
 
 extern NSString * _Nonnull const SBTUITunneledApplicationLaunchEnvironmentBonjourNameKey;
+extern NSString * _Nonnull const SBTUITunneledApplicationLaunchEnvironmentPreferredPortKey;
 extern NSString * _Nonnull const SBTUITunneledApplicationDefaultHost;
 
 extern const double
@@ -133,5 +134,7 @@ extern NSString * _Nonnull const SBTUITunneledNSURLProtocolHTTPBodyKey;
 @property (nullable, nonatomic, strong) NSDictionary *query;
 
 @end
+
+BOOL portOpen(const char *hostname, int port);
 
 #endif

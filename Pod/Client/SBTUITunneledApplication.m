@@ -25,10 +25,11 @@
 #import "SBTUITunneledApplication.h"
 #import "SBTUITestTunnel.h"
 #import "NSURLRequest+SBTUITestTunnelMatch.h"
-#include <ifaddrs.h>
-#include <arpa/inet.h>
+#import "XCTestCase+Swizzles.h"
 
-const NSString *SBTUITunnelJsonMimeType = @"application/json";
+const NSTimeInterval kLastPortCacheInterval = 5 * 60.0;
+NSString * _Nonnull const kUserDefaultsLastPortKey = @"SBTUITunneledApplicationLastPort";
+NSString * _Nonnull const kUserDefaultsLastPortTimeIntervalKey = @"SBTUITunneledApplicationLastPortTimeInterval";
 
 @interface SBTUITunneledApplication() <NSNetServiceDelegate>
 {
@@ -69,6 +70,14 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
     return self;
 }
 
++ (void)load
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        [XCTestCase loadSwizzles];
+    });
+}
+
 - (void)resetInternalState
 {
     [self.bonjourBrowser stop];
@@ -106,27 +115,53 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
 
 - (void)launchTunnelWithOptions:(NSArray<NSString *> *)options startupBlock:(void (^)(void))startupBlock
 {
+    NSInteger lastPort = [[NSUserDefaults standardUserDefaults] integerForKey:kUserDefaultsLastPortKey];
+    NSInteger lastPortTimeInterval = [[NSUserDefaults standardUserDefaults] doubleForKey:kUserDefaultsLastPortTimeIntervalKey];
+    BOOL lastPortDirty = (CFAbsoluteTimeGetCurrent() - lastPortTimeInterval) > kLastPortCacheInterval;
+        
+    NSMutableDictionary<NSString *, NSString *> *launchEnvironment = [self.launchEnvironment mutableCopy];
+    launchEnvironment[SBTUITunneledApplicationLaunchEnvironmentBonjourNameKey] = self.bonjourName;
+
+    if (lastPort != 0 && !lastPortDirty && portOpen([SBTUITunneledApplicationDefaultHost UTF8String], (int)lastPort)) {
+        self.connectionPort = lastPort;
+        launchEnvironment[SBTUITunneledApplicationLaunchEnvironmentPreferredPortKey] = [NSString stringWithFormat:@"%ld", lastPort];
+    }
+    
+    self.launchEnvironment = launchEnvironment;
+
     NSMutableArray *launchArguments = [self.launchArguments mutableCopy];
     [launchArguments addObjectsFromArray:options];
-    
     [launchArguments addObject:SBTUITunneledApplicationLaunchSignal];
     
     if (startupBlock) {
         [launchArguments addObject:SBTUITunneledApplicationLaunchOptionHasStartupCommands];
     }
     
-    self.startupBlock = startupBlock;
     self.launchArguments = launchArguments;
+    self.startupBlock = startupBlock;
     
-    NSMutableDictionary<NSString *, NSString *> *launchEnvironment = [self.launchEnvironment mutableCopy];
-    launchEnvironment[SBTUITunneledApplicationLaunchEnvironmentBonjourNameKey] = self.bonjourName;
-    self.launchEnvironment = launchEnvironment;
-    
-    NSLog(@"[SBTUITestTunnel] Resolving bonjour service %@", self.bonjourName);
-    [self.bonjourBrowser resolveWithTimeout:self.connectionTimeout];
+    if (launchEnvironment[SBTUITunneledApplicationLaunchEnvironmentPreferredPortKey] != nil) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+            [weakSelf waitForCachePort:lastPort];
+
+            weakSelf.connected = YES;
+            NSLog(@"[SBTUITestTunnel] Tunnel established on cached port %ld", lastPort);
+            
+            [[NSUserDefaults standardUserDefaults] setDouble:CFAbsoluteTimeGetCurrent() forKey:kUserDefaultsLastPortTimeIntervalKey];
+            
+            if (weakSelf.startupBlock) {
+                weakSelf.startupBlock(); // this will eventually add some commands in the startup command queue
+            }
+            
+            [weakSelf sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:@{}];
+        });
+    } else {
+        NSLog(@"[SBTUITestTunnel] Resolving bonjour service %@", self.bonjourName);
+        [self.bonjourBrowser resolveWithTimeout:self.connectionTimeout];
+    }
     
     [self launch];
-    
     [self waitForAppReady];
 }
 
@@ -140,14 +175,29 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
 {
     const int timeout = self.connectionTimeout;
     int i = 0;
-    for (i = 0; i < timeout; i++) {
+    for (i = 0; i < 2 * timeout; i++) {
         if ([self isAppCruising]) {
             return;
         }
-        [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
+        [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]];
     }
     
     NSAssert(NO, @"[SBTUITestTunnel] Failed waiting app to be ready");
+    [self terminate];
+}
+
+- (void)waitForCachePort:(NSInteger)cachedPort
+{
+    const int timeout = self.connectionTimeout;
+    int i = 0;
+    for (i = 0; i < 2 * timeout; i++) {
+        if (!portOpen([SBTUITunneledApplicationDefaultHost UTF8String], (int)cachedPort)) {
+            return;
+        }
+        [NSThread sleepForTimeInterval:0.5];
+    }
+    
+    NSAssert(NO, @"[SBTUITestTunnel] Failed waiting for cached port to setup");
     [self terminate];
 }
 
@@ -162,6 +212,8 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
         
         NSLog(@"[SBTUITestTunnel] Tunnel established on port %ld", (unsigned long)service.port);
         self.connectionPort = service.port;
+        [[NSUserDefaults standardUserDefaults] setInteger:service.port forKey:kUserDefaultsLastPortKey];
+        [[NSUserDefaults standardUserDefaults] setDouble:CFAbsoluteTimeGetCurrent() forKey:kUserDefaultsLastPortTimeIntervalKey];
         
         if (self.startupBlock) {
             self.startupBlock(); // this will eventually add some commands in the startup command queue

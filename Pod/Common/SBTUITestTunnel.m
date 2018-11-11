@@ -23,8 +23,12 @@
 #if ENABLE_UITUNNEL
 
 #import "SBTUITestTunnel.h"
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 NSString * const SBTUITunneledApplicationLaunchEnvironmentBonjourNameKey = @"SBTUITunneledApplicationLaunchEnvironmentBonjourNameKey";
+NSString * const SBTUITunneledApplicationLaunchEnvironmentPreferredPortKey = @"SBTUITunneledApplicationLaunchEnvironmentPreferredPortKey";
 NSString * const SBTUITunneledApplicationDefaultHost = @"localhost";
 
 const double SBTUITunnelStubsDownloadSpeedGPRS   =-    56 / 8; // kbps -> KB/s
@@ -148,5 +152,42 @@ NSString * const SBTUITunneledNSURLProtocolHTTPBodyKey = @"SBTUITunneledNSURLPro
 }
 
 @end
+
+BOOL portOpen(const char *hostname, int port)
+{
+    struct sockaddr_in addr;
+    int sockfd;
+    
+    bzero((char *) &addr, sizeof(addr));
+    
+    sockfd = socket( AF_INET, SOCK_STREAM, 0 );
+    
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = PF_UNSPEC; // PF_INET if you want only IPv4 addresses
+    hints.ai_protocol = IPPROTO_TCP;
+    
+    struct addrinfo *ip_addrs, *ip_addr;
+    
+    char host[NI_MAXHOST];
+    getaddrinfo(hostname, NULL, &hints, &ip_addrs);
+    for (ip_addr = ip_addrs; ip_addr; ip_addr = ip_addr->ai_next) {
+        getnameinfo(ip_addr->ai_addr, ip_addr->ai_addrlen, host, sizeof(host), NULL, 0, NI_NUMERICHOST);
+        if (ip_addr->ai_addrlen == 16) {
+            break;
+        }
+    }
+    freeaddrinfo(ip_addrs);
+    
+    addr.sin_addr.s_addr = inet_addr(host);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((UInt32)port);
+    
+    BOOL portOpen = (bind(sockfd, (struct sockaddr *) &addr, sizeof(addr)) == 0);
+    
+    close(sockfd);
+    
+    return portOpen;
+}
 
 #endif
