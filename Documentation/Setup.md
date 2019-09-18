@@ -5,7 +5,10 @@
 On the application's target call SBTUITestTunnelServer's `takeOff` method on top of `application(_:didFinishLaunchingWithOptions:)`.
 
     import UIKit
-    import SBTUITestTunnel
+
+    #if DEBUG 
+        import SBTUITestTunnel
+    #endif
 
     @UIApplicationMain
     class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -24,10 +27,6 @@ On the application's target call SBTUITestTunnelServer's `takeOff` method on top
 
 To use the framework you're required to define `DEBUG=1` or `ENABLE_UITUNNEL=1` in your preprocessor macros build settings. This is needed to make sure that test code doesn't end by mistake in production. Make sure that these macros should be defined in both your application target and Pods project.
 
-### Basic usage
-
-Nothing particular needs to be done if you'll be running your test code with a build configuration that already defines `DEBUG=1` and remember to **wrap all calls to the framework around `#if DEBUG`s** as shown in the example above or you may end up getting linking errors that might look something like:
-```
 Undefined symbols for architecture i386:
   "_OBJC_CLASS_$_SBTUITestTunnelServer", referenced from:
       type metadata accessor for __ObjC.SBTUITestTunnelServer in AppDelegate.o
@@ -52,6 +51,10 @@ In that case you'll need to add `ENABLE_UITUNNEL=1` in your application target b
             end
         end
     end
+
+## 🔥 Multiple commands produce SBTUITestTunnel.framework
+
+If you get the following error when archiving your project make sure you're properly wrapping any statemtent that refer to the tunnel around `#if DEBUG` conditionals. This is needed because the entire library is setup in a way that makes it hard to unintentionally ship the tunnel code into production.
 
 
 ## UI Testing target
@@ -150,6 +153,8 @@ As a convenience you can also sub-class `SBTUITunneledApplication` instead of `X
 This main difference between sub-classing `SBTUITunneledApplication` and using the `automatic` setup approach is that no swizzling is used and you can use your own `XCUIApplication` sub-class. You still need to create and retain an `XCUIApplication` instance in your `XCTestCase` classes.
 
 ## Workarounding _UI Testing Failure - Failure getting snapshot Error Domain=XCTestManagerErrorDomain Code=9 "Error getting main window -25204_
+
+**⚠️ This should no longer be needed as of Xcode 9 and newer, keeping here for reference**
 
 To workaround this issue, which seem to occur more frequently in apps with long startup, an additional step is required during the setup of the tunnel in the application target:
 
