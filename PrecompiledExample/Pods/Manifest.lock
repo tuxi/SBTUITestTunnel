@@ -1,0 +1,18 @@
+PODS:
+  - PodBuilder/SBTUITestTunnel_Client (0.0.1)
+  - PodBuilder/SBTUITestTunnel_Server (0.0.1)
+
+DEPENDENCIES:
+  - PodBuilder/SBTUITestTunnel_Client (from `Frameworks`)
+  - PodBuilder/SBTUITestTunnel_Server (from `Frameworks`)
+
+EXTERNAL SOURCES:
+  PodBuilder:
+    :path: Frameworks
+
+SPEC CHECKSUMS:
+  PodBuilder: ee9ce19bceaadf44fd219eedcac3f02dcd1e1ead
+
+PODFILE CHECKSUM: 94b36b1897a1643ebfdcc8fd07ed93128269ee3b
+
+COCOAPODS: 1.7.5

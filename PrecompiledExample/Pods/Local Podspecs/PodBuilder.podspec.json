@@ -1,0 +1,56 @@
+{
+  "name": "PodBuilder",
+  "version": "0.0.1",
+  "summary": "Prebuilt frameworks",
+  "description": "A set of prebuilt frameworks to make compilation faster",
+  "homepage": "https://www.subito.it",
+  "license": "Apache License, Version 2.0",
+  "authors": {
+    "Tomas Camin": "tomas.camin@schibsted.com"
+  },
+  "source": {
+    "git": "https://www.subito.it",
+    "tag": "0.0.1"
+  },
+  "platforms": {
+    "ios": "10.0"
+  },
+  "requires_arc": true,
+  "subspecs": [
+    {
+      "name": "GCDWebServer",
+      "vendored_frameworks": "Rome/GCDWebServer.framework"
+    },
+    {
+      "name": "SBTUITestTunnel_Client",
+      "vendored_frameworks": "Rome/SBTUITestTunnel/Client/SBTUITestTunnel.framework",
+      "frameworks": "XCTest",
+      "libraries": "z",
+      "resources": "Rome/SBTUITestTunnel/Client/SBTUITestTunnel.framework/*.{nib,bundle,xcasset,strings,png,jpg,tif,tiff,otf,ttf,ttc,plist,json,caf,wav,p12,momd}",
+      "exclude_files": [
+        "Rome/SBTUITestTunnel/Client/SBTUITestTunnel.framework/Info.plist",
+        "Rome/SBTUITestTunnel/Client/SBTUITestTunnel.framework/PodBuilder.plist"
+      ],
+      "xcconfig": {
+        "OTHER_LDFLAGS": "-ObjC"
+      }
+    },
+    {
+      "name": "SBTUITestTunnel_Server",
+      "vendored_frameworks": [
+        "Rome/SBTUITestTunnel/Server/SBTUITestTunnel.framework",
+        "Rome/GCDWebServer.framework"
+      ],
+      "libraries": "z",
+      "resources": "Rome/SBTUITestTunnel/Server/SBTUITestTunnel.framework/*.{nib,bundle,xcasset,strings,png,jpg,tif,tiff,otf,ttf,ttc,plist,json,caf,wav,p12,momd}",
+      "exclude_files": [
+        "Rome/SBTUITestTunnel/Server/SBTUITestTunnel.framework/Info.plist",
+        "Rome/GCDWebServer.framework/PodBuilder.plist",
+        "Rome/SBTUITestTunnel/Server/SBTUITestTunnel.framework/PodBuilder.plist"
+      ],
+      "xcconfig": {
+        "OTHER_LDFLAGS": "-ObjC"
+      }
+    }
+  ]
+}
