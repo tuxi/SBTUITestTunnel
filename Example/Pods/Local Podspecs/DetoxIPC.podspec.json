@@ -1,0 +1,32 @@
+{
+  "name": "DetoxIPC",
+  "version": "0.0.1",
+  "summary": "bi-directional inter-process remote invocation library for Apple platforms",
+  "description": "DetoxIPC is an asynchronous, bi-directional inter-process remote invocation library for Apple platforms with an interface similar to Apple's NSXPCConnection API.",
+  "homepage": "https://github.com/wix/DetoxIPC",
+  "license": {
+    "type": "MIT",
+    "file": "LICENSE"
+  },
+  "authors": {
+    "Leo Natan": ""
+  },
+  "source": {
+    "git": "https://github.com/wix/DetoxIPC.git",
+    "tag": "0.0.1"
+  },
+  "platforms": {
+    "ios": "9.3",
+    "osx": "10.14"
+  },
+  "requires_arc": [
+    "DetoxIPC/DTXIPC*.m",
+    "DetoxIPC/_DTXIPCDistantObject.m",
+    "DetoxIPC/_DTXIPCLocalObject.m"
+  ],
+  "source_files": "DetoxIPC/**/*.{m,h}",
+  "public_header_files": [
+    "DetoxIPC/DTXIPCConnection.h"
+  ],
+  "prefix_header_file": "DetoxIPC/DetoxIPC.pch"
+}

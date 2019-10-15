@@ -1,22 +1,28 @@
 PODS:
+  - DetoxIPC (0.0.1)
   - GCDWebServer (3.3.4):
     - GCDWebServer/Core (= 3.3.4)
   - GCDWebServer/Core (3.3.4)
-  - SBTUITestTunnelClient/Connectionless (4.0.1):
+  - SBTUITestTunnelClient/Connectionless (5.0.0):
     - SBTUITestTunnelCommon
     - SBTUITestTunnelServer
-  - SBTUITestTunnelCommon (4.0.1)
-  - SBTUITestTunnelServer (4.0.1):
+  - SBTUITestTunnelCommon (5.0.0)
+  - SBTUITestTunnelServer (5.0.0):
+    - DetoxIPC
     - GCDWebServer (~> 3.0)
     - SBTUITestTunnelCommon
 
 DEPENDENCIES:
+  - DetoxIPC (from `https://github.com/tcamin/DetoxIPC.git`, branch `uitesttunnel`)
   - GCDWebServer (from `https://github.com/tcamin/GCDWebServer.git`)
   - SBTUITestTunnelClient/Connectionless (from `../`)
   - SBTUITestTunnelCommon (from `../`)
   - SBTUITestTunnelServer (from `../`)
 
 EXTERNAL SOURCES:
+  DetoxIPC:
+    :branch: uitesttunnel
+    :git: https://github.com/tcamin/DetoxIPC.git
   GCDWebServer:
     :git: https://github.com/tcamin/GCDWebServer.git
   SBTUITestTunnelClient:
@@ -27,16 +33,20 @@ EXTERNAL SOURCES:
     :path: "../"
 
 CHECKOUT OPTIONS:
+  DetoxIPC:
+    :commit: 8d701c8b6fbaef5e58c9433ecf879b7229f2c461
+    :git: https://github.com/tcamin/DetoxIPC.git
   GCDWebServer:
     :commit: b6cfccde8fee64007632422096962687d5627e85
     :git: https://github.com/tcamin/GCDWebServer.git
 
 SPEC CHECKSUMS:
+  DetoxIPC: c3e6308d77b2d9f3f6e2e9313f9f0d18a9e3c4b2
   GCDWebServer: 0bd712acb4f246ce04d2ac321d33278fb1f72e63
-  SBTUITestTunnelClient: 3a37ec78b88c33f4af3acc3a67fefa65c08bff80
-  SBTUITestTunnelCommon: 0b1dfeb16a2823971d9bc6340e4af1105ec917e4
-  SBTUITestTunnelServer: 871cd227f096fcb116e2f994343954dfe8328938
+  SBTUITestTunnelClient: 66909276134a255decd9565edcc51776e98a6629
+  SBTUITestTunnelCommon: e6a1ba9db98afbfda3f11eb1776745bc1e023662
+  SBTUITestTunnelServer: 4a755300b4ab755c35a9e77008939b7bf28f93d4
 
-PODFILE CHECKSUM: 499b4be9c8047306155abd92c468ad5d5046ff8d
+PODFILE CHECKSUM: c7ccc38f3e14571b2324fd4a38e587b0b5debabf
 
-COCOAPODS: 1.6.2
+COCOAPODS: 1.8.3

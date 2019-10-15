@@ -11,11 +11,13 @@ def test_target
   pod 'SBTUITestTunnelClient/Connectionless', :path => '../'
   pod 'SBTUITestTunnelCommon', :path => '../'
   pod 'GCDWebServer', :git=> 'https://github.com/tcamin/GCDWebServer.git'
+  pod 'DetoxIPC', :git=> 'https://github.com/tcamin/DetoxIPC.git', :branch => 'uitesttunnel'
 end
 
 target 'SBTUITestTunnel_Example' do
   pod 'SBTUITestTunnelServer', :path => '../'
   pod 'SBTUITestTunnelCommon', :path => '../'
+  pod 'DetoxIPC', :git=> 'https://github.com/tcamin/DetoxIPC.git', :branch => 'uitesttunnel'
 end
 
 target 'SBTUITestTunnel_Tests' do

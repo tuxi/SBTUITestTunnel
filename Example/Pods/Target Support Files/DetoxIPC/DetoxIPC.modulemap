@@ -1,0 +1,6 @@
+framework module DetoxIPC {
+  umbrella header "DetoxIPC-umbrella.h"
+
+  export *
+  module * { export * }
+}

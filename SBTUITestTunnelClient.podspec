@@ -22,7 +22,7 @@ Pod::Spec.new do |s|
     s.frameworks = 'XCTest'
     s.source_files = 'Pod/Client/**/*.{h,m}'
     s.private_header_files = 'Pod/Client/Private/*.h'
-
+    
     s.dependency 'SBTUITestTunnelCommon'
 
     # Used only for testing purposes

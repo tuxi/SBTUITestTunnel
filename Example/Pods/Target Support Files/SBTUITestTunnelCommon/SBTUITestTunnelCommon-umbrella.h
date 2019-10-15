@@ -11,11 +11,13 @@
 #endif
 
 #import "NSURLRequest+SBTUITestTunnelMatch.h"
+#import "SBTIPCTransport.h"
 #import "SBTMonitoredNetworkRequest.h"
 #import "SBTRequestMatch.h"
 #import "SBTRewrite.h"
 #import "SBTStubResponse.h"
 #import "SBTSwizzleHelpers.h"
+#import "SBTTunnelRequest.h"
 #import "SBTUITestTunnel.h"
 
 FOUNDATION_EXPORT double SBTUITestTunnelCommonVersionNumber;

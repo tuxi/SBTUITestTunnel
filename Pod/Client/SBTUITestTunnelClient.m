@@ -26,8 +26,14 @@
 #import "SBTUITestTunnelClient.h"
 #import <SBTUITestTunnelCommon/SBTUITestTunnel.h>
 #import <SBTUITestTunnelCommon/NSURLRequest+SBTUITestTunnelMatch.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
+
+#if TARGET_OS_SIMULATOR
+    #import <DetoxIPC/DTXIPCConnection.h>
+    #import <SBTUITestTunnelCommon/SBTIPCTransport.h>
+#else
+    #include <ifaddrs.h>
+    #include <arpa/inet.h>
+#endif
 
 const NSString *SBTUITunnelJsonMimeType = @"application/json";
 #define kSBTUITestTunnelErrorDomain @"com.subito.sbtuitesttunnel.error"
@@ -39,16 +45,22 @@ const NSString *SBTUITunnelJsonMimeType = @"application/json";
 }
 
 @property (nonatomic, weak) XCUIApplication *application;
-@property (nonatomic, assign) NSInteger connectionPort;
-@property (nonatomic, assign) BOOL connected;
-@property (nonatomic, assign) NSTimeInterval connectionTimeout;
 @property (nonatomic, strong) NSMutableArray *stubOnceIds;
-@property (nonatomic, strong) NSString *bonjourName;
-@property (nonatomic, strong) NSNetService *bonjourBrowser;
 @property (nonatomic, strong) void (^startupBlock)(void);
 @property (nonatomic, copy) NSArray<NSString *> *initialLaunchArguments;
 @property (nonatomic, copy) NSDictionary<NSString *, NSString *> *initialLaunchEnvironment;
 @property (nonatomic, strong) NSString *(^connectionlessBlock)(NSString *, NSDictionary<NSString *, NSString *> *);
+@property (nonatomic, assign) BOOL connected;
+@property (nonatomic, assign) NSTimeInterval connectionTimeout;
+@property (nonatomic, strong) NSString *serviceName;
+
+#if TARGET_OS_SIMULATOR
+    @property (nonatomic, strong) DTXIPCConnection *ipcConnection;
+    @property (nonatomic, weak) SBTIPCTransport *ipcTransport;
+#else
+    @property (nonatomic, strong) NSNetService *bonjourBrowser;
+    @property (nonatomic, assign) NSInteger connectionPort;
+#endif
 
 @end
 
@@ -75,19 +87,23 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
 
 - (void)resetInternalState
 {
-    [self.bonjourBrowser stop];
+    self.serviceName = [NSString stringWithFormat:@"com.subito.test.%d.%.0f", [NSProcessInfo processInfo].processIdentifier, (double)(CFAbsoluteTimeGetCurrent() * 100000)];
 
+    #if TARGET_OS_SIMULATOR
+        // Do not invalidate connection here [self.ipcConnection invalidate];
+    #else
+        [self.bonjourBrowser stop];
+
+        self.bonjourBrowser = [[NSNetService alloc] initWithDomain:@"local." type:@"_http._tcp." name:self.serviceName];
+        self.bonjourBrowser.delegate = self;
+        self.connectionPort = 0;
+    #endif
+
+    self.connected = NO;
+    self.connectionTimeout = SBTUITunneledApplicationDefaultTimeout;
     self.application.launchArguments = self.initialLaunchArguments;
     self.application.launchEnvironment = self.initialLaunchEnvironment;
-
     self.startupBlock = nil;
-
-    self.bonjourName = [NSString stringWithFormat:@"com.subito.test.%d.%.0f", [NSProcessInfo processInfo].processIdentifier, (double)(CFAbsoluteTimeGetCurrent() * 100000)];
-    self.bonjourBrowser = [[NSNetService alloc] initWithDomain:@"local." type:@"_http._tcp." name:self.bonjourName];
-    self.bonjourBrowser.delegate = self;
-    self.connected = NO;
-    self.connectionPort = 0;
-    self.connectionTimeout = SBTUITunneledApplicationDefaultTimeout;
 }
 
 - (void)shutDownWithError:(nullable NSError *)error
@@ -119,14 +135,54 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
     self.application.launchArguments = launchArguments;
 
     NSMutableDictionary<NSString *, NSString *> *launchEnvironment = [self.application.launchEnvironment mutableCopy];
-    launchEnvironment[SBTUITunneledApplicationLaunchEnvironmentBonjourNameKey] = self.bonjourName;
+    launchEnvironment[SBTUITunneledApplicationLaunchEnvironmentServiceNameKey] = self.serviceName;
 
     self.application.launchEnvironment = launchEnvironment;
     
-    NSLog(@"[SBTUITestTunnel] Resolving bonjour service %@", self.bonjourName);
-    [self.bonjourBrowser resolveWithTimeout:self.connectionTimeout];
+    #if TARGET_OS_SIMULATOR
+        self.ipcConnection = [[DTXIPCConnection alloc] initWithServiceName:self.serviceName];
+        __weak typeof(self) weakSelf = self;
+        self.ipcConnection.invalidationHandler = ^{
+            weakSelf.connected = NO;
+        };
+
+        self.ipcConnection.remoteObjectInterface = [DTXIPCInterface interfaceWithProtocol:@protocol(SBTIPCTransporter)];
+        self.ipcConnection.exportedInterface = [DTXIPCInterface interfaceWithProtocol:@protocol(SBTIPCTransporter)];
+        SBTIPCTransport *transport = [[SBTIPCTransport alloc] init];
+        self.ipcConnection.exportedObject = transport;
+        self.ipcTransport = transport;
     
-    [self.delegate testTunnelClientIsReadyToLaunch:self];
+        dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+        transport.hook = ^NSData *(SBTIPCTransportRequest *request) {
+            if ([request.path isEqualToString:SBTUITunneledApplicationCommandStartupCommandsCompleted]) {
+                weakSelf.connected = YES;
+                dispatch_semaphore_signal(sem);
+            }            
+            return [NSKeyedArchiver archivedDataWithRootObject:@"YES"];
+        };
+    
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^() {
+            if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(weakSelf.connectionTimeout * NSEC_PER_SEC))) != 0) {
+                NSAssert(NO, @"[UITestTunnelServer] Fail waiting for launch semaphore");
+                return;
+            }
+            
+            NSLog(@"[SBTUITestTunnel] Tunnel established via IPC");
+        
+            if (weakSelf.startupBlock) {
+                weakSelf.startupBlock(); // this will eventually add some commands in the startup command queue
+            }
+        
+            [weakSelf sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:@{}];
+        });
+    
+        [self.delegate testTunnelClientIsReadyToLaunch:self];
+    #else
+        NSLog(@"[SBTUITestTunnel] Resolving bonjour service %@", self.serviceName);
+        [self.bonjourBrowser resolveWithTimeout:self.connectionTimeout];
+    
+        [self.delegate testTunnelClientIsReadyToLaunch:self];
+    #endif
     
     [self waitForAppReady];
 }
@@ -158,37 +214,41 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
     [self shutDownWithError:error];
 }
 
-#pragma mark - Bonjour
+#if !TARGET_OS_SIMULATOR
 
-- (void)netServiceDidResolveAddress:(NSNetService *)service;
-{
-    if ([service.name isEqualToString:self.bonjourName] && !self.connected) {
-        NSAssert(service.port > 0, @"[SBTUITestTunnel] unexpected port 0!");
-        
-        self.connected = YES;
-        
-        NSLog(@"[SBTUITestTunnel] Tunnel established on port %ld", (unsigned long)service.port);
-        self.connectionPort = service.port;
-        
-        if (self.startupBlock) {
-            self.startupBlock(); // this will eventually add some commands in the startup command queue
+    #pragma mark - Bonjour
+
+    - (void)netServiceDidResolveAddress:(NSNetService *)service;
+    {
+        if ([service.name isEqualToString:self.serviceName] && !self.connected) {
+            NSAssert(service.port > 0, @"[SBTUITestTunnel] unexpected port 0!");
+            
+            self.connected = YES;
+            
+            NSLog(@"[SBTUITestTunnel] Tunnel established on port %ld", (unsigned long)service.port);
+            self.connectionPort = service.port;
+            
+            if (self.startupBlock) {
+                self.startupBlock(); // this will eventually add some commands in the startup command queue
+            }
+            
+            [self sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:@{}];
         }
-        
-        [self sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:@{}];
-    }
-}
-
-- (void)netService:(NSNetService *)sender didNotResolve:(NSDictionary<NSString *,NSNumber *> *)errorDict
-{
-    if (!self.connected || ![sender.name isEqualToString:self.bonjourName]) {
-        return;
     }
 
-    NSString *message = [NSString localizedStringWithFormat:@"[SBTUITestTunnel] Failed to connect to client app %@", errorDict];
-    NSError *error = [self.class errorWithCode:SBTUITestTunnelErrorConnectionToApplicationFailed
-                                       message:message];
-    [self shutDownWithError:error];
-}
+    - (void)netService:(NSNetService *)sender didNotResolve:(NSDictionary<NSString *,NSNumber *> *)errorDict
+    {
+        if (!self.connected || ![sender.name isEqualToString:self.serviceName]) {
+            return;
+        }
+
+        NSString *message = [NSString localizedStringWithFormat:@"[SBTUITestTunnel] Failed to connect to client app %@", errorDict];
+        NSError *error = [self.class errorWithCode:SBTUITestTunnelErrorConnectionToApplicationFailed
+                                           message:message];
+        [self shutDownWithError:error];
+    }
+
+#endif
 
 #pragma mark - Timeout
 
@@ -637,7 +697,6 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
     
     if (objectBase64) {
         NSData *objectData = [[NSData alloc] initWithBase64EncodedString:objectBase64 options:0];
-        
         return [NSKeyedUnarchiver unarchiveObjectWithData:objectData];
     }
     
@@ -802,91 +861,136 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
         [self shutDownWithError:error];
         return @"";
     } else {
-        return [[data base64EncodedStringWithOptions:0] stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet alphanumericCharacterSet]];
+        #if TARGET_OS_SIMULATOR
+            return [data base64EncodedStringWithOptions:0];
+        #else
+            return [[data base64EncodedStringWithOptions:0] stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet alphanumericCharacterSet]];
+        #endif
     }
 }
 
-- (NSString *)sendSynchronousRequestWithPath:(NSString *)path params:(NSDictionary<NSString *, NSString *> *)params assertOnError:(BOOL)assertOnError
-{
-    if (self.connectionlessBlock) {
-        if ([NSThread isMainThread]) {
-            return self.connectionlessBlock(path, params);
-        } else {
-            __block NSString *ret = @"";
-            __weak typeof(self)weakSelf = self;
-            dispatch_sync(dispatch_get_main_queue(), ^{
-                ret = weakSelf.connectionlessBlock(path, params);
-            });
-            return ret;
-        }
-    }
-    
-    if (self.connectionPort == 0) {
-        return nil; // connection still not established
-    }
-    
-    NSString *urlString = [NSString stringWithFormat:@"http://%@:%d/%@", SBTUITunneledApplicationDefaultHost, (unsigned int)self.connectionPort, path];
-    
-    NSURL *url = [NSURL URLWithString:urlString];
-    
-    NSMutableURLRequest *request = nil;
-    NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
-    
-    NSMutableArray *queryItems = [NSMutableArray array];
-    [params enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
-        [queryItems addObject:[NSURLQueryItem queryItemWithName:key value:value]];
-    }];
-    components.queryItems = queryItems;
-    
-    if ([SBTUITunnelHTTPMethod isEqualToString:@"GET"]) {
-        request = [NSMutableURLRequest requestWithURL:components.URL];
-    } else if  ([SBTUITunnelHTTPMethod isEqualToString:@"POST"]) {
-        request = [NSMutableURLRequest requestWithURL:url];
-        
-        request.HTTPBody = [components.query dataUsingEncoding:NSUTF8StringEncoding];
-    }
-    request.HTTPMethod = SBTUITunnelHTTPMethod;
-    
-    if (!request) {
-        NSError *error = [self.class errorWithCode:SBTUITestTunnelErrorOtherFailure
-                                           message:@"[SBTUITestTunnel] Did fail to create url component"];
-        [self shutDownWithError:error];
-        return nil;
-    }
-    
-    dispatch_semaphore_t synchRequestSemaphore = dispatch_semaphore_create(0);
-    
-    NSURLSession *session = [NSURLSession sharedSession];
-    __block NSString *responseId = nil;
-    
-    [[session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        if (error.code == -1022) {
-            NSAssert(NO, @"Check that ATS security policy is properly setup, refer to documentation");
-        }
-        
-        if (![response isKindOfClass:[NSHTTPURLResponse class]]) {
-            if (assertOnError) {
-                NSLog(@"[SBTUITestTunnel] Failed to get http response: %@", request);
-                // [weakSelf terminate];
+#if TARGET_OS_SIMULATOR
+    - (NSString *)sendSynchronousRequestWithPath:(NSString *)path params:(NSDictionary<NSString *, NSString *> *)params assertOnError:(BOOL)assertOnError
+    {
+        if (self.connectionlessBlock) {
+            if ([NSThread isMainThread]) {
+                return self.connectionlessBlock(path, params);
+            } else {
+                __block NSString *ret = @"";
+                __weak typeof(self)weakSelf = self;
+                dispatch_sync(dispatch_get_main_queue(), ^{
+                    ret = weakSelf.connectionlessBlock(path, params);
+                });
+                return ret;
             }
         } else {
-            NSDictionary *jsonData = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
-            responseId = jsonData[SBTUITunnelResponseResultKey];
+            if (!self.connected) {
+                return nil;
+            }
+        }
+        
+        __block NSString *result;
+                
+        NSObject<SBTIPCTransporter> *proxy = self.ipcConnection.remoteObjectProxy;
+        
+        dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+        [proxy sendSynchronousRequestWithPath:path params:params completion:^(NSData *data) {
+            NSDictionary *dict = [NSKeyedUnarchiver unarchiveObjectWithData:data] ?: @[];
             
-            if (assertOnError) {
-                if (((NSHTTPURLResponse *)response).statusCode != 200) {
-                    NSLog(@"[SBTUITestTunnel] Message sending failed: %@", request);
+            result = dict[SBTUITunnelResponseResultKey];
+            dispatch_semaphore_signal(sem);
+        }];
+        
+        if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.connectionTimeout * NSEC_PER_SEC))) != 0) {
+            NSAssert(NO, @"[UITestTunnelClient] Fail sending command");
+            return @"";
+        }
+        
+        return result;
+    }
+#else
+    - (NSString *)sendSynchronousRequestWithPath:(NSString *)path params:(NSDictionary<NSString *, NSString *> *)params assertOnError:(BOOL)assertOnError
+    {
+        if (self.connectionlessBlock) {
+            if ([NSThread isMainThread]) {
+                return self.connectionlessBlock(path, params);
+            } else {
+                __block NSString *ret = @"";
+                __weak typeof(self)weakSelf = self;
+                dispatch_sync(dispatch_get_main_queue(), ^{
+                    ret = weakSelf.connectionlessBlock(path, params);
+                });
+                return ret;
+            }
+        }
+        
+        if (self.connectionPort == 0) {
+            return nil; // connection still not established
+        }
+        
+        NSString *urlString = [NSString stringWithFormat:@"http://%@:%d/%@", SBTUITunneledApplicationDefaultHost, (unsigned int)self.connectionPort, path];
+        
+        NSURL *url = [NSURL URLWithString:urlString];
+        
+        NSMutableURLRequest *request = nil;
+        NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+        
+        NSMutableArray *queryItems = [NSMutableArray array];
+        [params enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
+            [queryItems addObject:[NSURLQueryItem queryItemWithName:key value:value]];
+        }];
+        components.queryItems = queryItems;
+        
+        if ([SBTUITunnelHTTPMethod isEqualToString:@"GET"]) {
+            request = [NSMutableURLRequest requestWithURL:components.URL];
+        } else if  ([SBTUITunnelHTTPMethod isEqualToString:@"POST"]) {
+            request = [NSMutableURLRequest requestWithURL:url];
+            
+            request.HTTPBody = [components.query dataUsingEncoding:NSUTF8StringEncoding];
+        }
+        request.HTTPMethod = SBTUITunnelHTTPMethod;
+        
+        if (!request) {
+            NSError *error = [self.class errorWithCode:SBTUITestTunnelErrorOtherFailure
+                                               message:@"[SBTUITestTunnel] Did fail to create url component"];
+            [self shutDownWithError:error];
+            return nil;
+        }
+        
+        dispatch_semaphore_t synchRequestSemaphore = dispatch_semaphore_create(0);
+        
+        NSURLSession *session = [NSURLSession sharedSession];
+        __block NSString *responseId = nil;
+        
+        [[session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+            if (error.code == -1022) {
+                NSAssert(NO, @"Check that ATS security policy is properly setup, refer to documentation");
+            }
+            
+            if (![response isKindOfClass:[NSHTTPURLResponse class]]) {
+                if (assertOnError) {
+                    NSLog(@"[SBTUITestTunnel] Failed to get http response: %@", request);
+                    // [weakSelf terminate];
+                }
+            } else {
+                NSDictionary *jsonData = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+                responseId = jsonData[SBTUITunnelResponseResultKey];
+                
+                if (assertOnError) {
+                    if (((NSHTTPURLResponse *)response).statusCode != 200) {
+                        NSLog(@"[SBTUITestTunnel] Message sending failed: %@", request);
+                    }
                 }
             }
-        }
+            
+            dispatch_semaphore_signal(synchRequestSemaphore);
+        }] resume];
         
-        dispatch_semaphore_signal(synchRequestSemaphore);
-    }] resume];
-    
-    dispatch_semaphore_wait(synchRequestSemaphore, DISPATCH_TIME_FOREVER);
-    
-    return responseId;
-}
+        dispatch_semaphore_wait(synchRequestSemaphore, DISPATCH_TIME_FOREVER);
+        
+        return responseId;
+    }
+#endif
 
 - (NSString *)sendSynchronousRequestWithPath:(NSString *)path params:(NSDictionary<NSString *, NSString *> *)params
 {

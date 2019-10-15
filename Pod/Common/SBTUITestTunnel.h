@@ -24,8 +24,12 @@
 
 #import <Foundation/Foundation.h>
 
-extern NSString * _Nonnull const SBTUITunneledApplicationLaunchEnvironmentBonjourNameKey;
-extern NSString * _Nonnull const SBTUITunneledApplicationDefaultHost;
+
+extern NSString * _Nonnull const SBTUITunneledApplicationLaunchEnvironmentServiceNameKey;
+
+#if !TARGET_OS_SIMULATOR
+    extern NSString * _Nonnull const SBTUITunneledApplicationDefaultHost;
+#endif
 
 extern const double
 SBTUITunnelStubsDownloadSpeedGPRS,

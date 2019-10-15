@@ -24,4 +24,5 @@ Pod::Spec.new do |s|
 
     s.dependency 'SBTUITestTunnelCommon'
     s.dependency 'GCDWebServer', '~> 3.0'
+    s.dependency 'DetoxIPC'
 end

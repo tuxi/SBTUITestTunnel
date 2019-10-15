@@ -64,7 +64,7 @@
 
     self.launchArguments = launchArguments;
 
-    [self launchTunnelWithStartupBlock: startupBlock];
+    [self launchTunnelWithStartupBlock:startupBlock];
 }
 
 # pragma mark - SBTUITestTunnelClientDelegate
