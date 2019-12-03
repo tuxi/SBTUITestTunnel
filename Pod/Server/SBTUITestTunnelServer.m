@@ -1224,7 +1224,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 - (NSDictionary *)commandCoreLocationNotifyUpdate:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
 {
-    NSData *locationsData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
+    NSData *locationsData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
     NSArray<CLLocation *> *locations = [NSKeyedUnarchiver unarchiveObjectWithData:locationsData];
     
     for (CLLocationManager *locationManager in self.coreLocationActiveManagers.keyEnumerator.allObjects) {
@@ -1236,7 +1236,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 - (NSDictionary *)commandCoreLocationNotifyFailure:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
 {
-    NSData *paramData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
+    NSData *paramData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
     NSError *error = [NSKeyedUnarchiver unarchiveObjectWithData:paramData];
     
     for (CLLocationManager *locationManager in self.coreLocationActiveManagers.keyEnumerator.allObjects) {
@@ -1273,9 +1273,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - XCUITest WKWebView stubbing
 
-- (NSDictionary *)commandWkWebViewStubbing:(GCDWebServerRequest *)tunnelRequest
+- (NSDictionary *)commandWkWebViewStubbing:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
 {
-    BOOL stubWkWebView = [tunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
+    BOOL stubWkWebView = [SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
     if (stubWkWebView) {
         [self enableUrlProtocolInWkWebview];
     } else {
