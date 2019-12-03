@@ -11,6 +11,7 @@
 #endif
 
 #import "DTXIPCConnection.h"
+#import "DTXIPCBase.h"
 
 FOUNDATION_EXPORT double DetoxIPCVersionNumber;
 FOUNDATION_EXPORT const unsigned char DetoxIPCVersionString[];

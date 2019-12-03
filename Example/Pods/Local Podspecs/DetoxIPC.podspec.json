@@ -26,7 +26,8 @@
   ],
   "source_files": "DetoxIPC/**/*.{m,h}",
   "public_header_files": [
-    "DetoxIPC/DTXIPCConnection.h"
+    "DetoxIPC/DTXIPCConnection.h",
+    "DetoxIPC/DTXIPCBase.h"
   ],
   "prefix_header_file": "DetoxIPC/DetoxIPC.pch"
 }

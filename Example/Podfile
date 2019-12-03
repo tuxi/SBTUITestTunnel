@@ -1,7 +1,7 @@
 source 'https://github.com/CocoaPods/Specs.git'
 
 use_frameworks!
-platform :ios, '10.0'
+platform :ios, '11.0'
 
 def test_target
   # SBTUITestTunnel/Connectionless is used to be able to run debug implementations
@@ -11,13 +11,13 @@ def test_target
   pod 'SBTUITestTunnelClient/Connectionless', :path => '../'
   pod 'SBTUITestTunnelCommon', :path => '../'
   pod 'GCDWebServer', :git=> 'https://github.com/tcamin/GCDWebServer.git'
-  pod 'DetoxIPC', :git=> 'https://github.com/tcamin/DetoxIPC.git', :branch => 'uitesttunnel'
+  pod 'DetoxIPC', :path => '../../DetoxIPC' # :git=> 'https://github.com/tcamin/DetoxIPC.git', :branch => 'uitesttunnel'
 end
 
 target 'SBTUITestTunnel_Example' do
   pod 'SBTUITestTunnelServer', :path => '../'
   pod 'SBTUITestTunnelCommon', :path => '../'
-  pod 'DetoxIPC', :git=> 'https://github.com/tcamin/DetoxIPC.git', :branch => 'uitesttunnel'
+  pod 'DetoxIPC', :path => '../../DetoxIPC' # :git=> 'https://github.com/tcamin/DetoxIPC.git', :branch => 'uitesttunnel'
 end
 
 target 'SBTUITestTunnel_Tests' do
