@@ -170,7 +170,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     }
 
     #if TARGET_OS_SIMULATOR
-        self.ipcConnection = [[DTXIPCConnection alloc] initWithRegisteredServiceName:serviceName];
+        self.ipcConnection = [[DTXIPCConnection alloc] initWithServiceName:serviceName];
         self.ipcConnection.remoteObjectInterface = [DTXIPCInterface interfaceWithProtocol:@protocol(SBTIPCTransporter)];
         self.ipcConnection.exportedInterface = [DTXIPCInterface interfaceWithProtocol:@protocol(SBTIPCTransporter)];
         SBTIPCTransport *transport = [[SBTIPCTransport alloc] init];
@@ -324,14 +324,14 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Ping Command
 
-- (NSDictionary *)commandPing:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandPing:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
 #pragma mark - Ping Command
 
-- (NSDictionary *)commandQuit:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandQuit:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     exit(0);
     return @{ SBTUITunnelResponseResultKey: @"YES" };
@@ -339,26 +339,26 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Ready Command
 
-- (NSDictionary *)commandCruising:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCruising:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     return @{ SBTUITunnelResponseResultKey: self.cruising ? @"YES" : @"NO" };
 }
 
 #pragma mark - Stubs Commands
 
-- (NSDictionary *)commandStubMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandStubMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     __block NSString *stubId = @"";
     SBTRequestMatch *requestMatch = nil;
     
-    if ([self validStubRequest:SBTTunnelRequest]) {
-        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelStubMatchRuleKey] options:0];
+    if ([self validStubRequest:tunnelRequest]) {
+        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelStubMatchRuleKey] options:0];
         requestMatch = [NSKeyedUnarchiver unarchiveObjectWithData:requestMatchData];
         
-        NSData *responseData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelStubResponseKey] options:0];
+        NSData *responseData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelStubResponseKey] options:0];
         SBTStubResponse *response = [NSKeyedUnarchiver unarchiveObjectWithData:responseData];
 
-        NSString *requestIdentifier = [self identifierForStubRequest:SBTTunnelRequest];
+        NSString *requestIdentifier = [self identifierForStubRequest:tunnelRequest];
         
         __weak typeof(self)weakSelf = self;
         stubId = [SBTProxyURLProtocol stubRequestsMatching:requestMatch stubResponse:response didStubRequest:^(NSURLRequest *request) {
@@ -379,27 +379,27 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Stub and Remove Commands
 
-- (NSDictionary *)commandStubAndRemoveMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandStubAndRemoveMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     NSDictionary *ret = @{ SBTUITunnelResponseResultKey: @"NO" };
     NSInteger stubRequestsRemoveAfterCount = 0;
     
-    if ([self validStubRequest:SBTTunnelRequest]) {
-        stubRequestsRemoveAfterCount = [SBTTunnelRequest.parameters[SBTUITunnelStubIterationsKey] integerValue];
+    if ([self validStubRequest:tunnelRequest]) {
+        stubRequestsRemoveAfterCount = [tunnelRequest.parameters[SBTUITunnelStubIterationsKey] integerValue];
         
         for (NSInteger i = 0; i < stubRequestsRemoveAfterCount; i++) {
-            [self.stubsToRemoveAfterCount addObject:[self identifierForStubRequest:SBTTunnelRequest]];
+            [self.stubsToRemoveAfterCount addObject:[self identifierForStubRequest:tunnelRequest]];
         }
         
-        ret = [self commandStubMatching:SBTTunnelRequest];
+        ret = [self commandStubMatching:tunnelRequest];
     }
     
     return ret;
 }
 
-- (NSDictionary *)commandStubRequestsRemove:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandStubRequestsRemove:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelStubMatchRuleKey] options:0];
+    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelStubMatchRuleKey] options:0];
     NSString *stubId = [NSKeyedUnarchiver unarchiveObjectWithData:responseData];
     
     NSString *ret = @"NO";
@@ -410,7 +410,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret };
 }
 
-- (NSDictionary *)commandStubRequestsRemoveAll:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandStubRequestsRemoveAll:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     [SBTProxyURLProtocol stubRequestsRemoveAll];
     
@@ -419,19 +419,19 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Rewrites Commands
 
-- (NSDictionary *)commandRewriteMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandRewriteMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     __block NSString *rewriteId = @"";
     SBTRequestMatch *requestMatch = nil;
     
-    if ([self validRewriteRequest:SBTTunnelRequest]) {
-        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey] options:0];
+    if ([self validRewriteRequest:tunnelRequest]) {
+        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey] options:0];
         requestMatch = [NSKeyedUnarchiver unarchiveObjectWithData:requestMatchData];
         
-        NSData *rewriteData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelRewriteKey] options:0];
+        NSData *rewriteData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelRewriteKey] options:0];
         SBTRewrite *rewrite = [NSKeyedUnarchiver unarchiveObjectWithData:rewriteData];
         
-        NSString *requestIdentifier = [self identifierForRewriteRequest:SBTTunnelRequest];
+        NSString *requestIdentifier = [self identifierForRewriteRequest:tunnelRequest];
         
         __weak typeof(self)weakSelf = self;
         rewriteId = [SBTProxyURLProtocol rewriteRequestsMatching:requestMatch rewrite:rewrite didRewriteRequest:^(NSURLRequest *request) {
@@ -452,27 +452,27 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Rewrite and Remove Commands
 
-- (NSDictionary *)commandRewriteAndRemoveMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandRewriteAndRemoveMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     NSDictionary *ret = @{ SBTUITunnelResponseResultKey: @"NO" };
     NSInteger rewriteRequestsRemoveAfterCount = 0;
     
-    if ([self validRewriteRequest:SBTTunnelRequest]) {
-        rewriteRequestsRemoveAfterCount = [SBTTunnelRequest.parameters[SBTUITunnelRewriteIterationsKey] integerValue];
+    if ([self validRewriteRequest:tunnelRequest]) {
+        rewriteRequestsRemoveAfterCount = [tunnelRequest.parameters[SBTUITunnelRewriteIterationsKey] integerValue];
         
         for (NSInteger i = 0; i < rewriteRequestsRemoveAfterCount; i++) {
-            [self.rewritesToRemoveAfterCount addObject:[self identifierForRewriteRequest:SBTTunnelRequest]];
+            [self.rewritesToRemoveAfterCount addObject:[self identifierForRewriteRequest:tunnelRequest]];
         }
         
-        ret = [self commandRewriteMatching:SBTTunnelRequest];
+        ret = [self commandRewriteMatching:tunnelRequest];
     }
     
     return ret;
 }
 
-- (NSDictionary *)commandRewriteRemove:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandRewriteRemove:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey] options:0];
+    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey] options:0];
     NSString *rewriteId = [NSKeyedUnarchiver unarchiveObjectWithData:responseData];
     
     NSString *ret = @"NO";
@@ -483,7 +483,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret };
 }
 
-- (NSDictionary *)commandRewriteRemoveAll:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandRewriteRemoveAll:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     [SBTProxyURLProtocol rewriteRequestsRemoveAll];
     
@@ -492,13 +492,13 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Request Monitor Commands
 
-- (NSDictionary *)commandMonitorMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandMonitorMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     NSString *reqId = @"";
     SBTRequestMatch *requestMatch = nil;
     
-    if ([self validMonitorRequest:SBTTunnelRequest]) {
-        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
+    if ([self validMonitorRequest:tunnelRequest]) {
+        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
         requestMatch = [NSKeyedUnarchiver unarchiveObjectWithData:requestMatchData];
         
         reqId = [SBTProxyURLProtocol proxyRequestsMatching:requestMatch delayResponse:0.0 responseBlock:^(NSURLRequest *request, NSURLRequest *originalRequest, NSHTTPURLResponse *response, NSData *responseData, NSTimeInterval requestTime, BOOL isStubbed, BOOL isRewritten) {
@@ -523,9 +523,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: reqId ?: @"", SBTUITunnelResponseDebugKey: [requestMatch description] ?: @"" };
 }
 
-- (NSDictionary *)commandMonitorRemove:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandMonitorRemove:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
+    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
     NSString *reqId = [NSKeyedUnarchiver unarchiveObjectWithData:responseData];
     
     NSString *ret = [SBTProxyURLProtocol proxyRequestsRemoveWithId:reqId] ? @"YES" : @"NO";
@@ -533,14 +533,14 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret };
 }
 
-- (NSDictionary *)commandMonitorsRemoveAll:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandMonitorsRemoveAll:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     [SBTProxyURLProtocol proxyRequestsRemoveAll];
     
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandMonitorPeek:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandMonitorPeek:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     
@@ -562,7 +562,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
         debugInfo = [NSString stringWithFormat:@"Found %ld monitored requests", (unsigned long)requestsToPeek.count];
     };
     
-    if ([SBTTunnelRequest.parameters[SBTUITunnelLocalExecutionKey] boolValue]) {
+    if ([tunnelRequest.parameters[SBTUITunnelLocalExecutionKey] boolValue]) {
         if ([NSThread isMainThread]) {
             monitorBlock();
         } else {
@@ -582,7 +582,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret ?: @"", SBTUITunnelResponseDebugKey: debugInfo ?: @"" };
 }
 
-- (NSDictionary *)commandMonitorFlush:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandMonitorFlush:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     
@@ -602,7 +602,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
         }
     };
     
-    if ([SBTTunnelRequest.parameters[SBTUITunnelLocalExecutionKey] boolValue]) {
+    if ([tunnelRequest.parameters[SBTUITunnelLocalExecutionKey] boolValue]) {
         if ([NSThread isMainThread]) {
             flushBlock();
         } else {
@@ -625,15 +625,15 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Request Throttle Commands
 
-- (NSDictionary *)commandThrottleMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandThrottleMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     NSString *reqId = @"";
     SBTRequestMatch *requestMatch = nil;
     
-    if ([self validThrottleRequest:SBTTunnelRequest]) {
-        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
+    if ([self validThrottleRequest:tunnelRequest]) {
+        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
         requestMatch = [NSKeyedUnarchiver unarchiveObjectWithData:requestMatchData];
-        NSTimeInterval responseDelayTime = [SBTTunnelRequest.parameters[SBTUITunnelProxyQueryResponseTimeKey] doubleValue];
+        NSTimeInterval responseDelayTime = [tunnelRequest.parameters[SBTUITunnelProxyQueryResponseTimeKey] doubleValue];
         
         reqId = [SBTProxyURLProtocol proxyRequestsMatching:requestMatch delayResponse:responseDelayTime responseBlock:nil];
     }
@@ -641,16 +641,16 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: reqId ?: @"", SBTUITunnelResponseDebugKey: [requestMatch description] ?: @""};
 }
 
-- (NSDictionary *)commandThrottleRemove:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandThrottleRemove:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
+    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0];
     NSString *reqId = [NSKeyedUnarchiver unarchiveObjectWithData:responseData];
     
     NSString *ret = [SBTProxyURLProtocol proxyRequestsRemoveWithId:reqId] ? @"YES" : @"NO";
     return @{ SBTUITunnelResponseResultKey: ret };
 }
 
-- (NSDictionary *)commandThrottlesRemoveAll:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandThrottlesRemoveAll:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     [SBTProxyURLProtocol proxyRequestsRemoveAll];
     
@@ -659,16 +659,16 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Cookie Block Commands
 
-- (NSDictionary *)commandCookiesBlockMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCookiesBlockMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     __block NSString *cookieBlockId = @"";
     SBTRequestMatch *requestMatch = nil;
     
-    if ([self validCookieBlockRequest:SBTTunnelRequest]) {
-        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey] options:0];
+    if ([self validCookieBlockRequest:tunnelRequest]) {
+        NSData *requestMatchData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey] options:0];
         requestMatch = [NSKeyedUnarchiver unarchiveObjectWithData:requestMatchData];
         
-        NSString *requestIdentifier = [self identifierForCookieBlockRequest:SBTTunnelRequest];
+        NSString *requestIdentifier = [self identifierForCookieBlockRequest:tunnelRequest];
         
         __weak typeof(self)weakSelf = self;
         cookieBlockId = [SBTProxyURLProtocol cookieBlockRequestsMatching:requestMatch didBlockCookieInRequest:^(NSURLRequest *request) {
@@ -689,34 +689,34 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Cookie Block Remove Commands
 
-- (NSDictionary *)commandCookiesBlockAndRemoveMatching:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCookiesBlockAndRemoveMatching:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     NSDictionary *ret = @{ SBTUITunnelResponseResultKey: @"NO" };
     NSInteger cookieBlockRemoveAfterCount = 0;
     
-    if ([self validCookieBlockRequest:SBTTunnelRequest]) {
-        cookieBlockRemoveAfterCount = [SBTTunnelRequest.parameters[SBTUITunnelCookieBlockQueryIterationsKey] integerValue];
+    if ([self validCookieBlockRequest:tunnelRequest]) {
+        cookieBlockRemoveAfterCount = [tunnelRequest.parameters[SBTUITunnelCookieBlockQueryIterationsKey] integerValue];
         
         for (NSInteger i = 0; i < cookieBlockRemoveAfterCount; i++) {
-            [self.cookieBlockToRemoveAfterCount addObject:[self identifierForCookieBlockRequest:SBTTunnelRequest]];
+            [self.cookieBlockToRemoveAfterCount addObject:[self identifierForCookieBlockRequest:tunnelRequest]];
         }
         
-        ret = [self commandCookiesBlockMatching:SBTTunnelRequest];
+        ret = [self commandCookiesBlockMatching:tunnelRequest];
     }
     
     return ret;
 }
 
-- (NSDictionary *)commandCookiesBlockRemove:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCookiesBlockRemove:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey] options:0];
+    NSData *responseData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey] options:0];
     NSString *reqId = [NSKeyedUnarchiver unarchiveObjectWithData:responseData];
     
     NSString *ret = [SBTProxyURLProtocol cookieBlockRequestsRemoveWithId:reqId] ? @"YES" : @"NO";
     return @{ SBTUITunnelResponseResultKey: ret };
 }
 
-- (NSDictionary *)commandCookiesBlockRemoveAll:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCookiesBlockRemoveAll:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     [SBTProxyURLProtocol cookieBlockRequestsRemoveAll];
     
@@ -725,11 +725,11 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - NSUSerDefaults Commands
 
-- (NSDictionary *)commandNSUserDefaultsSetObject:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandNSUserDefaultsSetObject:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *objKey = SBTTunnelRequest.parameters[SBTUITunnelObjectKeyKey];
-    NSString *suiteName = SBTTunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
-    NSData *objData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
+    NSString *objKey = tunnelRequest.parameters[SBTUITunnelObjectKeyKey];
+    NSString *suiteName = tunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
+    NSData *objData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
     id obj = [NSKeyedUnarchiver unarchiveObjectWithData:objData];
     
     NSString *ret = @"NO";
@@ -743,10 +743,10 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret };
 }
 
-- (NSDictionary *)commandNSUserDefaultsRemoveObject:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandNSUserDefaultsRemoveObject:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *objKey = SBTTunnelRequest.parameters[SBTUITunnelObjectKeyKey];
-    NSString *suiteName = SBTTunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
+    NSString *objKey = tunnelRequest.parameters[SBTUITunnelObjectKeyKey];
+    NSString *suiteName = tunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
     
     NSString *ret = @"NO";
     if (objKey) {
@@ -759,10 +759,10 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret };
 }
 
-- (NSDictionary *)commandNSUserDefaultsObject:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandNSUserDefaultsObject:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *objKey = SBTTunnelRequest.parameters[SBTUITunnelObjectKeyKey];
-    NSString *suiteName = SBTTunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
+    NSString *objKey = tunnelRequest.parameters[SBTUITunnelObjectKeyKey];
+    NSString *suiteName = tunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
     
     NSUserDefaults *userDefault = [[NSUserDefaults alloc] initWithSuiteName:([suiteName length] > 0) ? suiteName : nil];
     
@@ -776,9 +776,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret ?: @"" };
 }
 
-- (NSDictionary *)commandNSUserDefaultsReset:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandNSUserDefaultsReset:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *suiteName = SBTTunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
+    NSString *suiteName = tunnelRequest.parameters[SBTUITunnelUserDefaultSuiteNameKey];
     
     NSUserDefaults *userDefault = [[NSUserDefaults alloc] initWithSuiteName:([suiteName length] > 0) ? suiteName : nil];
     
@@ -790,7 +790,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - NSBundle
 
-- (NSDictionary *)commandMainBundleInfoDictionary:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandMainBundleInfoDictionary:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     NSData *data = [NSKeyedArchiver archivedDataWithRootObject:[[NSBundle mainBundle] infoDictionary]];
     NSString *ret = @"";
@@ -803,11 +803,11 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Copy Commands
 
-- (NSDictionary *)commandUpload:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandUpload:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *fileData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelUploadDataKey] options:0];
-    NSString *destPath = [NSKeyedUnarchiver unarchiveObjectWithData:[[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelUploadDestPathKey] options:0]];
-    NSSearchPathDirectory basePath = [SBTTunnelRequest.parameters[SBTUITunnelUploadBasePathKey] intValue];
+    NSData *fileData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelUploadDataKey] options:0];
+    NSString *destPath = [NSKeyedUnarchiver unarchiveObjectWithData:[[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelUploadDestPathKey] options:0]];
+    NSSearchPathDirectory basePath = [tunnelRequest.parameters[SBTUITunnelUploadBasePathKey] intValue];
     
     NSArray *paths = NSSearchPathForDirectoriesInDomains(basePath, NSUserDomainMask, YES);
     NSString *path = [[paths firstObject] stringByAppendingPathComponent:destPath];
@@ -835,15 +835,15 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: ret, SBTUITunnelResponseDebugKey: debugInfo };
 }
 
-- (NSDictionary *)commandDownload:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandDownload:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSSearchPathDirectory basePathDirectory = [SBTTunnelRequest.parameters[SBTUITunnelDownloadBasePathKey] intValue];
+    NSSearchPathDirectory basePathDirectory = [tunnelRequest.parameters[SBTUITunnelDownloadBasePathKey] intValue];
     
     NSString *basePath = [NSSearchPathForDirectoriesInDomains(basePathDirectory, NSUserDomainMask, YES) firstObject];
     
     NSArray *basePathContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:basePath error:nil];
     
-    NSString *filesToMatch = [NSKeyedUnarchiver unarchiveObjectWithData:[[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelDownloadPathKey] options:0]];
+    NSString *filesToMatch = [NSKeyedUnarchiver unarchiveObjectWithData:[[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelDownloadPathKey] options:0]];
     NSPredicate *filterPredicate = [NSPredicate predicateWithFormat:@"SELF like %@", filesToMatch];
     NSArray *matchingFiles = [basePathContent filteredArrayUsingPredicate:filterPredicate];
     
@@ -864,20 +864,20 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - Other Commands
 
-- (NSDictionary *)commandSetUIAnimations:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandSetUIAnimations:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    BOOL enableAnimations = [SBTTunnelRequest.parameters[SBTUITunnelObjectKey] boolValue];
+    BOOL enableAnimations = [tunnelRequest.parameters[SBTUITunnelObjectKey] boolValue];
     
     [UIView setAnimationsEnabled:enableAnimations];
     
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandSetUIAnimationSpeed:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandSetUIAnimationSpeed:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     NSAssert(![NSThread isMainThread], @"Shouldn't be on main thread");
     
-    NSInteger animationSpeed = [SBTTunnelRequest.parameters[SBTUITunnelObjectKey] integerValue];
+    NSInteger animationSpeed = [tunnelRequest.parameters[SBTUITunnelObjectKey] integerValue];
     dispatch_sync(dispatch_get_main_queue(), ^() {
         // Replacing [UIView setAnimationsEnabled:] as per
         // https://pspdfkit.com/blog/2016/running-ui-tests-with-ludicrous-speed/
@@ -888,7 +888,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: @"YES", SBTUITunnelResponseDebugKey: debugInfo };
 }
 
-- (NSDictionary *)commandShutDown:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandShutDown:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     [self reset];
     
@@ -903,7 +903,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandStartupCompleted:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandStartupCompleted:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     dispatch_semaphore_signal(self.launchSemaphore);
     
@@ -962,11 +962,11 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return NO;
 }
 
-- (NSDictionary *)commandScrollScrollView:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandScrollScrollView:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *elementIdentifier = SBTTunnelRequest.parameters[SBTUITunnelObjectKey];
-    NSString *targetElementIdentifier = SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey];
-    BOOL animated = [SBTTunnelRequest.parameters[SBTUITunnelObjectAnimatedKey] boolValue];
+    NSString *elementIdentifier = tunnelRequest.parameters[SBTUITunnelObjectKey];
+    NSString *targetElementIdentifier = tunnelRequest.parameters[SBTUITunnelObjectValueKey];
+    BOOL animated = [tunnelRequest.parameters[SBTUITunnelObjectAnimatedKey] boolValue];
     
     __block BOOL result = NO;
     
@@ -1021,11 +1021,11 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: result ? @"YES": @"NO", SBTUITunnelResponseDebugKey: debugInfo };
 }
 
-- (NSDictionary *)commandScrollTableView:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandScrollTableView:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *elementIdentifier = SBTTunnelRequest.parameters[SBTUITunnelObjectKey];
-    NSInteger elementRow = [SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey] intValue];
-    BOOL animated = [SBTTunnelRequest.parameters[SBTUITunnelObjectAnimatedKey] boolValue];
+    NSString *elementIdentifier = tunnelRequest.parameters[SBTUITunnelObjectKey];
+    NSInteger elementRow = [tunnelRequest.parameters[SBTUITunnelObjectValueKey] intValue];
+    BOOL animated = [tunnelRequest.parameters[SBTUITunnelObjectAnimatedKey] boolValue];
     
     __block BOOL result = NO;
     
@@ -1081,11 +1081,11 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: result ? @"YES": @"NO", SBTUITunnelResponseDebugKey: debugInfo };
 }
 
-- (NSDictionary *)commandScrollCollectionView:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandScrollCollectionView:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *elementIdentifier = SBTTunnelRequest.parameters[SBTUITunnelObjectKey];
-    NSInteger elementRow = [SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey] intValue];
-    BOOL animated = [SBTTunnelRequest.parameters[SBTUITunnelObjectAnimatedKey] boolValue];
+    NSString *elementIdentifier = tunnelRequest.parameters[SBTUITunnelObjectKey];
+    NSInteger elementRow = [tunnelRequest.parameters[SBTUITunnelObjectValueKey] intValue];
+    BOOL animated = [tunnelRequest.parameters[SBTUITunnelObjectAnimatedKey] boolValue];
     
     __block BOOL result = NO;
     
@@ -1141,9 +1141,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: result ? @"YES": @"NO", SBTUITunnelResponseDebugKey: debugInfo };
 }
 
-- (NSDictionary *)commandForceTouchPopView:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandForceTouchPopView:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *elementIdentifier = SBTTunnelRequest.parameters[SBTUITunnelObjectKey];
+    NSString *elementIdentifier = tunnelRequest.parameters[SBTUITunnelObjectKey];
 
     __block BOOL result = NO;
     
@@ -1189,9 +1189,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - XCUITest CLLocation extensions
 
-- (NSDictionary *)commandCoreLocationStubbing:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCoreLocationStubbing:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    BOOL stubSystemLocation = [SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
+    BOOL stubSystemLocation = [tunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
     if (stubSystemLocation) {
         [CLLocationManager loadSwizzlesWithInstanceHashTable:self.coreLocationActiveManagers authorizationStatus:self.coreLocationStubbedAuthorizationStatus];
     } else {
@@ -1201,9 +1201,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandCoreLocationStubAuthorizationStatus:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCoreLocationStubAuthorizationStatus:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *authorizationStatus = SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey];
+    NSString *authorizationStatus = tunnelRequest.parameters[SBTUITunnelObjectValueKey];
     
     [self.coreLocationStubbedAuthorizationStatus setString:authorizationStatus];
     for (CLLocationManager *locationManager in self.coreLocationActiveManagers.keyEnumerator.allObjects) {
@@ -1213,18 +1213,18 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandCoreLocationStubServiceStatus:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCoreLocationStubServiceStatus:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *serviceStatus = SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey];
+    NSString *serviceStatus = tunnelRequest.parameters[SBTUITunnelObjectValueKey];
     
     [self.coreLocationStubbedServiceStatus setString:serviceStatus];
 
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandCoreLocationNotifyUpdate:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCoreLocationNotifyUpdate:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *locationsData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
+    NSData *locationsData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
     NSArray<CLLocation *> *locations = [NSKeyedUnarchiver unarchiveObjectWithData:locationsData];
     
     for (CLLocationManager *locationManager in self.coreLocationActiveManagers.keyEnumerator.allObjects) {
@@ -1234,9 +1234,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandCoreLocationNotifyFailure:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandCoreLocationNotifyFailure:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *paramData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
+    NSData *paramData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelObjectKey] options:0];
     NSError *error = [NSKeyedUnarchiver unarchiveObjectWithData:paramData];
     
     for (CLLocationManager *locationManager in self.coreLocationActiveManagers.keyEnumerator.allObjects) {
@@ -1248,10 +1248,10 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - XCUITest UNUserNotificationCenter extensions
 
-- (NSDictionary *)commandNotificationCenterStubbing:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandNotificationCenterStubbing:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
     if (@available(iOS 10.0, *)) {
-        BOOL stubNotificationCenter = [SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
+        BOOL stubNotificationCenter = [tunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
         if (stubNotificationCenter) {
             [UNUserNotificationCenter loadSwizzlesWithAuthorizationStatus:self.notificationCenterStubbedAuthorizationStatus];
         } else {
@@ -1262,9 +1262,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return @{ SBTUITunnelResponseResultKey: @"YES" };
 }
 
-- (NSDictionary *)commandNotificationCenterStubAuthorizationStatus:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandNotificationCenterStubAuthorizationStatus:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSString *authorizationStatus = SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey];
+    NSString *authorizationStatus = tunnelRequest.parameters[SBTUITunnelObjectValueKey];
     
     [self.notificationCenterStubbedAuthorizationStatus setString:authorizationStatus];
 
@@ -1273,9 +1273,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
 
 #pragma mark - XCUITest WKWebView stubbing
 
-- (NSDictionary *)commandWkWebViewStubbing:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSDictionary *)commandWkWebViewStubbing:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    BOOL stubWkWebView = [SBTTunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
+    BOOL stubWkWebView = [tunnelRequest.parameters[SBTUITunnelObjectValueKey] isEqualToString:@"YES"];
     if (stubWkWebView) {
         [self enableUrlProtocolInWkWebview];
     } else {
@@ -1328,9 +1328,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     }
 }
 
-- (NSString *)identifierForStubRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSString *)identifierForStubRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSArray<NSString *> *components = @[SBTTunnelRequest.parameters[SBTUITunnelStubMatchRuleKey]];
+    NSArray<NSString *> *components = @[tunnelRequest.parameters[SBTUITunnelStubMatchRuleKey]];
     NSError *error = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:components options:NSJSONWritingPrettyPrinted error:&error];
     
@@ -1342,9 +1342,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return [@"stub-" stringByAppendingString:[jsonData SHA1]];
 }
 
-- (NSString *)identifierForRewriteRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSString *)identifierForRewriteRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSArray<NSString *> *components = @[SBTTunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey]];
+    NSArray<NSString *> *components = @[tunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey]];
     NSError *error = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:components options:NSJSONWritingPrettyPrinted error:&error];
     
@@ -1356,9 +1356,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return [@"rewrite-" stringByAppendingString:[jsonData SHA1]];
 }
 
-- (NSString *)identifierForCookieBlockRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (NSString *)identifierForCookieBlockRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSArray<NSString *> *components = @[SBTTunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey]];
+    NSArray<NSString *> *components = @[tunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey]];
     NSError *error = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:components options:NSJSONWritingPrettyPrinted error:&error];
     
@@ -1370,9 +1370,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return [@"cookie_block-" stringByAppendingString:[jsonData SHA1]];
 }
 
-- (SBTStubResponse *)responseForStubRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (SBTStubResponse *)responseForStubRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *stubResponseData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelStubResponseKey] options:0];
+    NSData *stubResponseData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelStubResponseKey] options:0];
     SBTStubResponse *stubResponse = [NSKeyedUnarchiver unarchiveObjectWithData:stubResponseData];
 
     if (![stubResponse isKindOfClass:[SBTStubResponse class]]) {
@@ -1383,9 +1383,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return stubResponse;
 }
 
-- (BOOL)validStubRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (BOOL)validStubRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    if (![[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelStubMatchRuleKey] options:0]) {
+    if (![[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelStubMatchRuleKey] options:0]) {
         NSLog(@"[UITestTunnelServer] Invalid stubRequest received!");
         
         return NO;
@@ -1394,9 +1394,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return YES;
 }
 
-- (SBTRewrite *)rewriteForRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (SBTRewrite *)rewriteForRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    NSData *rewriteData = [[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelRewriteKey] options:0];
+    NSData *rewriteData = [[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelRewriteKey] options:0];
     SBTRewrite *rewrite = [NSKeyedUnarchiver unarchiveObjectWithData:rewriteData];
     
     if (![rewrite isKindOfClass:[SBTRewrite class]]) {
@@ -1407,9 +1407,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return rewrite;
 }
 
-- (BOOL)validRewriteRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (BOOL)validRewriteRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    if (![[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey] options:0]) {
+    if (![[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelRewriteMatchRuleKey] options:0]) {
         NSLog(@"[UITestTunnelServer] Invalid rewriteRequest received!");
         
         return NO;
@@ -1418,9 +1418,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return YES;
 }
 
-- (BOOL)validMonitorRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (BOOL)validMonitorRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    if (![[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0]) {
+    if (![[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0]) {
         NSLog(@"[UITestTunnelServer] Invalid monitorRequest received!");
         
         return NO;
@@ -1429,9 +1429,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return YES;
 }
 
-- (BOOL)validThrottleRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (BOOL)validThrottleRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    if (SBTTunnelRequest.parameters[SBTUITunnelProxyQueryResponseTimeKey] != nil && ![[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0]) {
+    if (tunnelRequest.parameters[SBTUITunnelProxyQueryResponseTimeKey] != nil && ![[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelProxyQueryRuleKey] options:0]) {
         NSLog(@"[UITestTunnelServer] Invalid throttleRequest received!");
         
         return NO;
@@ -1440,9 +1440,9 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
     return YES;
 }
 
-- (BOOL)validCookieBlockRequest:(NSObject<SBTTunnelRequest> *)SBTTunnelRequest
+- (BOOL)validCookieBlockRequest:(NSObject<SBTTunnelRequest> *)tunnelRequest
 {
-    if (![[NSData alloc] initWithBase64EncodedString:SBTTunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey] options:0]) {
+    if (![[NSData alloc] initWithBase64EncodedString:tunnelRequest.parameters[SBTUITunnelCookieBlockMatchRuleKey] options:0]) {
         NSLog(@"[UITestTunnelServer] Invalid cookieBlockRequest received!");
         
         return NO;
