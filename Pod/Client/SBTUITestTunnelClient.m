@@ -169,11 +169,13 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
             
             NSLog(@"[SBTUITestTunnel] Tunnel established via IPC");
         
-            if (weakSelf.startupBlock) {
-                weakSelf.startupBlock(); // this will eventually add some commands in the startup command queue
-            }
-        
-            [weakSelf sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:@{}];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (weakSelf.startupBlock) {
+                    weakSelf.startupBlock(); // this will eventually add some commands in the startup command queue
+                }
+                
+                [weakSelf sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:@{}];
+            });
         });
     
         [self.delegate testTunnelClientIsReadyToLaunch:self];
