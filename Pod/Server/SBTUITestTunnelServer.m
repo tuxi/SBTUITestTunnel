@@ -221,7 +221,7 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
         }
     
         NSObject<SBTIPCTransporter> *proxy = self.ipcConnection.remoteObjectProxy;
-        [proxy sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandIPCReady params:nil completion:^(NSData *data) {
+        [proxy sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:nil completion:^(NSData *data) {
             NSString *ret = [NSKeyedUnarchiver unarchiveObjectWithData:data];
             NSAssert([ret isEqualToString:@"YES"], @"[UITestTunnelServer] Failed starting up");
         }];
