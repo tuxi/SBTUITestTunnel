@@ -495,7 +495,11 @@ static NSTimeInterval SBTUITunneledApplicationDefaultTimeout = 30.0;
     }];
     
     for (;;) {
-        [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]];
+        #if TARGET_OS_SIMULATOR
+            [NSThread sleepForTimeInterval:0.5];
+        #else
+            [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]];
+        #endif
         
         [doneLock lock];
         if (done) {
