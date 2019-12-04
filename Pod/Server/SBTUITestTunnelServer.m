@@ -213,8 +213,15 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
             return ret;
         };
     
+        [self processLaunchOptionsIfNeeded];
+        
+        if (![[NSProcessInfo processInfo].arguments containsObject:SBTUITunneledApplicationLaunchSignal]) {
+            NSLog(@"[UITestTunnelServer] Signal launch option missing, safely landing!");
+            return;
+        }
+    
         NSObject<SBTIPCTransporter> *proxy = self.ipcConnection.remoteObjectProxy;
-        [proxy sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandStartupCommandsCompleted params:nil completion:^(NSData *data) {
+        [proxy sendSynchronousRequestWithPath:SBTUITunneledApplicationCommandIPCReady params:nil completion:^(NSData *data) {
             NSString *ret = [NSKeyedUnarchiver unarchiveObjectWithData:data];
             NSAssert([ret isEqualToString:@"YES"], @"[UITestTunnelServer] Failed starting up");
         }];
@@ -255,16 +262,14 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
             dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
             return ret;
         }];
-    #endif
     
-    [self processLaunchOptionsIfNeeded];
-    
-    if (![[NSProcessInfo processInfo].arguments containsObject:SBTUITunneledApplicationLaunchSignal]) {
-        NSLog(@"[UITestTunnelServer] Signal launch option missing, safely landing!");
-        return;
-    }
-    
-    #if !TARGET_OS_SIMULATOR
+        [self processLaunchOptionsIfNeeded];
+        
+        if (![[NSProcessInfo processInfo].arguments containsObject:SBTUITunneledApplicationLaunchSignal]) {
+            NSLog(@"[UITestTunnelServer] Signal launch option missing, safely landing!");
+            return;
+        }
+
         NSDictionary *serverOptions = [NSMutableDictionary dictionary];
         
         [serverOptions setValue:@NO forKey:GCDWebServerOption_AutomaticallySuspendInBackground];
