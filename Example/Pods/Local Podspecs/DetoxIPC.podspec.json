@@ -16,7 +16,7 @@
     "tag": "0.0.1"
   },
   "platforms": {
-    "ios": "9.3",
+    "ios": "10.0",
     "osx": "10.14"
   },
   "requires_arc": [

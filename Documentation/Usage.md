@@ -57,19 +57,24 @@ The startup block contains code that will be executed before the app enters the 
 
 ### SBTRequestMatch
 
-The stubbing/monitoring/throttling and rewrite methods of the library require a `SBTRequestMatch` object in order to determine whether they should react to a certain network request.
+The stubbing/monitoring/throttling/cookie blocking and rewrite functionalities of the library require a `SBTRequestMatch` object in order to determine whether they should respond to a certain network request.
 
 You can specify a regex on the URL, multiple regex on the query (in `POST` and `PUT` requests they will match against the body) and HTTP method using one of the several class methods available.
 
 #### Query parameter
 
-The `query` parameter found in different `SBTRequestMatch` initializers is an array of regex strings that are checked with the request [query](https://tools.ietf.org/html/rfc3986#section-3.4). If all regex in array match the request is stubbed/monitored/throttled.
+The `query` parameter in `SBTRequestMatch`'s initializer is an array of regex strings that are checked with the request [query](https://tools.ietf.org/html/rfc3986#section-3.4). If all regex in array match the request is handled by the library.
 
 In a kind of unconventional syntax you can prefix the regex with an exclamation mark `!` to specify that the request must not match that specific regex, see the following examples.
 
 #### Body parameter
 
 The `body` parameter allows to match the request against its HTTP Body. As for the `query` parameter, the passed value is used as a regex which is evaluated on the request HTTP Body and the exlamation mark `!` can be used to specify an "inverted match" (i.e. that the HTTP Body should NOT match the provided `body` pattern).
+
+#### Headers parameters
+
+The `requestHeader` and `responseHeader` parameters allows to match the request against the HTTP request and response headers respectively. There parameters are [String: String] dictionaries with the key and value being regexes witch are evaluated on the key/value of the request/response headers. The regex follows the same rules that apply to the `query` parameter.
+
 
 #### Examples
 
@@ -112,6 +117,12 @@ let sr = SBTRequestMatch(url: "myhost.com", query: [], method: "POST", body: "So
 let sr = SBTRequestMatch(url: "myhost.com", query: [], method: "POST", body: "!UnwantedBodyContent")
 ```
 
+This will match if the request headers contain both a header with key `Accept-Enc*=gzip*` and another header `Accept-Language=en`. The request MUST contain at least both these headers for the SBTRequestMatch to match.
+
+```swift	
+let sr = SBTRequestMatch(url: "myhost.com", requestHeaders: ["Accept-Enc.*": "gzip.*", "Accept-Language": "en"])
+```
+
 Finally you can limit a specific HTTP method by specifying it in the `method` parameter.
 
 ```swift
@@ -133,23 +144,40 @@ let stubId = app.stubRequests(matching: SBTRequestMatch.url("google.com"), respo
 app.stubRequestsRemoveWithId(stubId) // To remove the stub either use the identifier
 
 app.stubRequestsRemoveAll() // or remove all active stubs
-```
+``` 
 
-A second stub initializer is available that automatically removes the stub after a certain number of times that the request is matched.
+You can get a list of the current active stubs
 
 ```swift
-let stubId = app.stubRequests(matching: SBTRequestMatch.url("google.com"), response: SBTStubResponse(response: ["key": "value"], removeAfterIterations: 2)
-
-// from here on the first two network requests containing 'google.com' will return a JSON {"key" : "value" }
-// subsequent network requests won't be stubbed
-...
-```    
+let stubs: [SBTRequestMatch: SBTStubResponse] = app.stubRequestsAll()
+```
 
 #### SBTStubResponse
 
 The stubbing methods of the library require a `SBTStubResponse` object in order to determine what to return for network requests that have to be stubbed.
 
 The class has a wide set of initializers that allow to specify data, HTTP headers, contentType, HTTP return code and response time of the stubbed request. For convenience some initializers omit some parameters which default to predefined values.
+
+You can also specify how many times the stubbed response should be used by specifying the `activeIterations` parameter in the initializer. The default value is 0  which means stubbing will be performed indefinitely. 
+
+```swift
+let stubId = app.stubRequests(matching: SBTRequestMatch.url("google.com"), response: SBTStubResponse(response: ["key": "value"], activeIterations: 2))
+
+// from here on the first two network requests containing 'google.com' will return a JSON {"key" : "value" }
+// subsequent network requests won't be stubbed
+...
+```
+
+#### SBTStubFailureResponse
+
+To stub specific [url errors](https://developer.apple.com/documentation/foundation/urlerror), like for example _not connected to internet_ you can use an instance of SBTStubFailureResponse
+
+```swift
+let response = SBTStubFailureResponse(errorCode: URLError.notConnectedToInternet.rawValue)
+app.stubRequests(matching: SBTRequestMatch.url("google.com"), response: response)
+```
+
+The URLSession will fail with an `Error` according to the specified `errorCode`.
 
 ### Upload / Download items
 
@@ -228,6 +256,8 @@ The class has a wide set of initializers that allow to specify request and respo
 The header rewrite is specified by passing a dictionary where the key will replace (if key already exist) or add new values to the headers. To remove a specific key just pass an empty value.
 
 The other rewrite are specified by an array of `SBTRewriteReplacement`.
+
+As for `SBTStubResponse` you can instantiate passing the `activeIterations` parameter to rewrite a specific number of network requests
 
 #### SBTRewriteReplacement
 

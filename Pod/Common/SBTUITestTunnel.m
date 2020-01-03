@@ -45,11 +45,9 @@ NSString * const SBTUITunnelHTTPMethod = @"POST";
 
 NSString * const SBTUITunnelStubMatchRuleKey = @"match_rule";
 NSString * const SBTUITunnelStubResponseKey = @"response";
-NSString * const SBTUITunnelStubIterationsKey = @"iterations";
 
 NSString * const SBTUITunnelRewriteMatchRuleKey = @"match_rule";
 NSString * const SBTUITunnelRewriteKey = @"rewrite_rule";
-NSString * const SBTUITunnelRewriteIterationsKey = @"iterations";
 
 NSString * const SBTUITunnelLocalExecutionKey = @"local_exec";
 
@@ -85,12 +83,11 @@ NSString * const SBTUITunneledApplicationCommandQuit = @"commandQuit";
 NSString * const SBTUITunneledApplicationCommandCruising = @"commandCruising";
 
 NSString * const SBTUITunneledApplicationCommandStubMatching = @"commandStubMatching";
-NSString * const SBTUITunneledApplicationCommandStubAndRemoveMatching = @"commandStubAndRemoveMatching";
 NSString * const SBTUITunneledApplicationCommandStubRequestsRemove = @"commandStubRequestsRemove";
 NSString * const SBTUITunneledApplicationCommandStubRequestsRemoveAll = @"commandStubRequestsRemoveAll";
+NSString * const SBTUITunneledApplicationCommandStubRequestsAll = @"commandStubRequestsAll";
 
 NSString * const SBTUITunneledApplicationCommandRewriteMatching = @"commandRewriteMatching";
-NSString * const SBTUITunneledApplicationCommandRewriteAndRemoveMatching = @"commandRewriteAndRemoveMatching";
 NSString * const SBTUITunneledApplicationCommandRewriteRequestsRemove = @"commandRewriteRemove";
 NSString * const SBTUITunneledApplicationCommandRewriteRequestsRemoveAll = @"commandRewriteRemoveAll";
 
@@ -104,7 +101,7 @@ NSString * const SBTUITunneledApplicationCommandThrottleMatching = @"commandThro
 NSString * const SBTUITunneledApplicationCommandThrottleRemove = @"commandThrottleRemove";
 NSString * const SBTUITunneledApplicationCommandThrottleRemoveAll = @"commandThrottlesRemoveAll";
 
-NSString * const SBTUITunneledApplicationCommandCookieBlockAndRemoveMatching = @"commandCookiesBlockAndRemoveMatching";
+NSString * const SBTUITunneledApplicationCommandCookieBlockMatching = @"commandCookiesBlockMatching";
 NSString * const SBTUITunneledApplicationCommandCookieBlockRemove = @"commandCookiesBlockRemove";
 NSString * const SBTUITunneledApplicationCommandCookieBlockRemoveAll = @"commandCookiesBlockRemoveAll";
 
@@ -144,7 +141,7 @@ NSString * const SBTUITunneledNSURLProtocolHTTPBodyKey = @"SBTUITunneledNSURLPro
 
 @implementation SBTUITunnelStartupCommand
 
-- (id)initWithCoder:(NSCoder *)decoder
+- (instancetype)initWithCoder:(NSCoder *)decoder
 {
     if (self = [super init]) {
         self.path = [decoder decodeObjectForKey:NSStringFromSelector(@selector(path))];

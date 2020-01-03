@@ -47,11 +47,9 @@ extern NSString * _Nonnull const SBTUITunnelHTTPMethod;
 
 extern NSString * _Nonnull const SBTUITunnelStubMatchRuleKey;
 extern NSString * _Nonnull const SBTUITunnelStubResponseKey;
-extern NSString * _Nonnull const SBTUITunnelStubIterationsKey;
 
 extern NSString * _Nonnull const SBTUITunnelRewriteMatchRuleKey;
 extern NSString * _Nonnull const SBTUITunnelRewriteKey;
-extern NSString * _Nonnull const SBTUITunnelRewriteIterationsKey;
 
 extern NSString * _Nonnull const SBTUITunnelLocalExecutionKey;
 
@@ -87,12 +85,11 @@ extern NSString * _Nonnull const SBTUITunneledApplicationCommandQuit;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandCruising;
 
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandStubMatching;
-extern NSString * _Nonnull const SBTUITunneledApplicationCommandStubAndRemoveMatching;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandStubRequestsRemove;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandStubRequestsRemoveAll;
+extern NSString * _Nonnull const SBTUITunneledApplicationCommandStubRequestsAll;
 
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandRewriteMatching;
-extern NSString * _Nonnull const SBTUITunneledApplicationCommandRewriteAndRemoveMatching;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandRewriteRequestsRemove;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandRewriteRequestsRemoveAll;
 
@@ -106,7 +103,7 @@ extern NSString * _Nonnull const SBTUITunneledApplicationCommandThrottleMatching
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandThrottleRemove;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandThrottleRemoveAll;
 
-extern NSString * _Nonnull const SBTUITunneledApplicationCommandCookieBlockAndRemoveMatching;
+extern NSString * _Nonnull const SBTUITunneledApplicationCommandCookieBlockMatching;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandCookieBlockRemove;
 extern NSString * _Nonnull const SBTUITunneledApplicationCommandCookieBlockRemoveAll;
 

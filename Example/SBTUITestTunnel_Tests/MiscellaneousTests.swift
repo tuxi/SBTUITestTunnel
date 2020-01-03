@@ -136,6 +136,8 @@ class MiscellaneousTests: XCTestCase {
         
         app.terminate()
         
+        Thread.sleep(forTimeInterval: 3.0)
+        
         app.launchTunnel()
         // UserDefaults shouldn't get reset
         XCTAssertEqual(randomString, app.userDefaultsObject(forKey: userDefaultKey) as? String)

@@ -15,21 +15,20 @@
 // limitations under the License.
 
 #if DEBUG
-#ifndef ENABLE_UITUNNEL
-#define ENABLE_UITUNNEL 1
-#endif
+    #ifndef ENABLE_UITUNNEL
+        #define ENABLE_UITUNNEL 1
+    #endif
 #endif
 
 #if ENABLE_UITUNNEL
 
 #import "SBTMonitoredNetworkRequest.h"
-#import "SBTRequestMatch.h"
 #import "NSURLRequest+SBTUITestTunnelMatch.h"
 #import "NSData+gzip.h"
 
 @implementation SBTMonitoredNetworkRequest : NSObject
 
-- (id)initWithCoder:(NSCoder *)decoder
+- (instancetype)initWithCoder:(NSCoder *)decoder
 {
     if (self = [super init]) {
         self.timestamp = [decoder decodeDoubleForKey:NSStringFromSelector(@selector(timestamp))];

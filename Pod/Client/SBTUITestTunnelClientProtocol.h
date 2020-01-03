@@ -15,16 +15,14 @@
 // limitations under the License.
 
 #if DEBUG
-#ifndef ENABLE_UITUNNEL
-#define ENABLE_UITUNNEL 1
-#endif
+    #ifndef ENABLE_UITUNNEL
+        #define ENABLE_UITUNNEL 1
+    #endif
 #endif
 
 #if ENABLE_UITUNNEL
 
-#import <SBTUITestTunnelCommon/SBTRequestMatch.h>
-#import <SBTUITestTunnelCommon/SBTRewrite.h>
-#import <SBTUITestTunnelCommon/SBTStubResponse.h>
+#import <SBTUITestTunnelCommon/SBTUITestTunnelCommon-Swift.h>
 #import <SBTUITestTunnelCommon/SBTMonitoredNetworkRequest.h>
 #import <CoreLocation/CLLocation.h>
 #import <CoreLocation/CLLocationManager.h>
@@ -84,19 +82,6 @@
  */
 - (nullable NSString *)stubRequestsMatching:(nonnull SBTRequestMatch *)match response:(nonnull SBTStubResponse *)response;
 
-#pragma mark - Stub And Remove Commands
-
-/**
- *  Stub a request matching a regular expression pattern for a limited number of times. The rule is checked against the URL.absoluteString of the request
- *
- *  @param match The match object that contains the matching rules
- *  @param response The object that represents the stubbed response
- *  @param iterations number of matches after which the stub will be automatically removed
- *
- *  @return `YES` on success
- */
-- (nullable NSString *)stubRequestsMatching:(nonnull SBTRequestMatch *)match response:(nonnull SBTStubResponse *)response removeAfterIterations:(NSUInteger)iterations;
-
 #pragma mark - Stub Remove Commands
 
 /**
@@ -124,6 +109,13 @@
  */
 - (BOOL)stubRequestsRemoveAll;
 
+/**
+ *  Returns all active stubs
+ *
+ *  @return A dictionary containing all active stubs
+ */
+- (nonnull NSDictionary<SBTRequestMatch *, SBTStubResponse *> *)stubRequestsAll;
+
 #pragma mark - Rewrite Commands
 
 /**
@@ -135,19 +127,6 @@
  *  @return If nil request failed. Otherwise an identifier associated to the newly created rewrite. Should be used when removing rewrite using -(BOOL)rewriteRequestsRemoveWithId:
  */
 - (nullable NSString *)rewriteRequestsMatching:(nonnull SBTRequestMatch *)match rewrite:(nonnull SBTRewrite *)rewrite;
-
-#pragma mark - Rewrite And Remove Commands
-
-/**
- *  Rewrite a request matching a regular expression pattern for a limited number of times. The rule is checked against the SBTRequestMatch object
- *
- *  @param match The match object that contains the matching rules
- *  @param rewrite The object that represents the rewrite reules
- *  @param iterations number of matches after which the rewrite will be automatically removed
- *
- *  @return `YES` on success
- */
-- (nullable NSString *)rewriteRequestsMatching:(nonnull SBTRequestMatch *)match rewrite:(nonnull SBTRewrite *)rewrite removeAfterIterations:(NSUInteger)iterations;
 
 #pragma mark - Rewrite Remove Commands
 
@@ -309,11 +288,11 @@
  *  Block all cookies found in requests matching a regular expression pattern. The rule is checked against the SBTRequestMatch object
  *
  *  @param match The match object that contains the matching rules
- *  @param iterations How often the request should happen before timing out
+ *  @param activeIterations The number of times the cookies are blocked
  *
  *  @return If nil request failed. Otherwise an identifier associated to the newly created throttle request. Should be used when using -(BOOL)throttleRequestRemoveWithId:
  */
-- (nullable NSString *)blockCookiesInRequestsMatching:(nonnull SBTRequestMatch *)match iterations:(NSUInteger)iterations;
+- (nullable NSString *)blockCookiesInRequestsMatching:(nonnull SBTRequestMatch *)match activeIterations:(NSUInteger)activeIterations;
 
 /**
  *  Remove a cookie block request

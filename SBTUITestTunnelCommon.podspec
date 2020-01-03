@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name             = "SBTUITestTunnelCommon"
-    s.version          = "5.3.0"
+    s.version          = "6.0.0"
     s.summary          = "Enable network mocks and more in UI Tests"
 
     s.description      = <<-DESC
@@ -13,12 +13,12 @@ Pod::Spec.new do |s|
     s.author           = { "Tomas Camin" => "tomas.camin@adevinta.com" }
     s.source           = { :git => "https://github.com/Subito-it/SBTUITestTunnel.git", :tag => s.version.to_s }
 
-    s.platform = :ios, '9.0'
+    s.platform = :ios, '10.0'
     s.requires_arc = true
     s.xcconfig = { "OTHER_LDFLAGS" => "-ObjC" }
     s.pod_target_xcconfig = { :prebuild_configuration => 'debug' }
     s.library = 'z'
 
-    s.source_files = 'Pod/Common/**/*.{h,m}'   
+    s.source_files = 'Pod/Common/**/*.{h,m,swift}'   
     s.private_header_files = 'Pod/Common/Private/*.h'
 end

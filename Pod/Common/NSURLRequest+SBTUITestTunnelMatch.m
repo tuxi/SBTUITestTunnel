@@ -22,6 +22,7 @@
 
 #if ENABLE_UITUNNEL
 
+#import <SBTUITestTunnelCommon/SBTUITestTunnelCommon-Swift.h>
 #import "NSURLRequest+SBTUITestTunnelMatch.h"
 #import "SBTUITestTunnel.h"
 
@@ -89,7 +90,7 @@
             matchesBody = invertMatch ? (regexMatches == 0) : (regexMatches > 0);
         }
     }
-    
+        
     return matchesURL && matchesQuery && matchesMethod && matchesBody;
 }
 
