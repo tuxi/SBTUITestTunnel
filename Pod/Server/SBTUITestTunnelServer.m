@@ -178,36 +178,26 @@ static NSTimeInterval SBTUITunneledServerDefaultTimeout = 60.0;
         transport.hook = ^NSData *(SBTIPCTransportRequest *request) {
             __strong typeof(weakSelf)strongSelf = weakSelf;
             
-            __block NSData *ret;
+            NSString *command = [request.path stringByReplacingOccurrencesOfString:@"/" withString:@""];
             
-            dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-            dispatch_async(strongSelf.commandDispatchQueue, ^{
-                NSString *command = [request.path stringByReplacingOccurrencesOfString:@"/" withString:@""];
-                
-                NSString *commandString = [command stringByAppendingString:@":"];
-                SEL commandSelector = NSSelectorFromString(commandString);
-                NSDictionary *response = nil;
-                
-                if (![strongSelf processCustomCommandIfNecessary:request returnObject:&response]) {
-                    if (![strongSelf respondsToSelector:commandSelector]) {
-                        BlockAssert(NO, @"[UITestTunnelServer] Unhandled/unknown command! %@", command);
-                    }
-                    
-                    IMP imp = [strongSelf methodForSelector:commandSelector];
-                    
-                    NSLog(@"[UITestTunnelServer] Executing command '%@'", command);
-                    
-                    NSDictionary * (*func)(id, SEL, NSObject<SBTTunnelRequest> *) = (void *)imp;
-                    response = func(strongSelf, commandSelector, request);
+            NSString *commandString = [command stringByAppendingString:@":"];
+            SEL commandSelector = NSSelectorFromString(commandString);
+            NSDictionary *response = nil;
+            
+            if (![strongSelf processCustomCommandIfNecessary:request returnObject:&response]) {
+                if (![strongSelf respondsToSelector:commandSelector]) {
+                    BlockAssert(NO, @"[UITestTunnelServer] Unhandled/unknown command! %@", command);
                 }
                 
-                ret = [NSKeyedArchiver archivedDataWithRootObject:response];
+                IMP imp = [strongSelf methodForSelector:commandSelector];
                 
-                dispatch_semaphore_signal(sem);
-            });
+                NSLog(@"[UITestTunnelServer] Executing command '%@'", command);
+                
+                NSDictionary * (*func)(id, SEL, NSObject<SBTTunnelRequest> *) = (void *)imp;
+                response = func(strongSelf, commandSelector, request);
+            }
             
-            dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
-            return ret;
+            return [NSKeyedArchiver archivedDataWithRootObject:response];
         };
     
         [self processLaunchOptionsIfNeeded];
